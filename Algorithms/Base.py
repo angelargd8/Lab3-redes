@@ -1,7 +1,7 @@
 from typing import Dict, List, Optional
 
 class Base:
-    name = "base"
+    name = "Base"
 
     def __init__(self, node):
         self.node = node

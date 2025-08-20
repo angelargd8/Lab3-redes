@@ -11,6 +11,10 @@ def make_msg(*, proto, type, from_addr, to, ttl, headers=None, payload=None):
         "headers": headers or [{}],
         "payload": payload or ""
     }
+
+    #asignar msg_id si falta
+    msg.setdefault("headers", [{}])
+    msg["headers"][0].setdefault("msg_id", str(uuid.uuid4()))
     return msg
 
 
@@ -19,30 +23,3 @@ def dumps(msg: dict) -> str:
 
 def loads(text: str):
     return json.loads(text)
-
-#helpers
-
-def hdr_get(msg, key, default=None):
-    try:
-        return msg["headers"][0].get(key, default)
-    except Exception:
-        return default
-
-def hdr_set(msg, key, value):
-    if not msg.get("headers"):
-        msg["headers"] = [{}]
-    msg["headers"][0][key] = value
-
-
-def pack(obj) -> str:
-    """Codifica objetos como string JSON en payload (tu payload es string)."""
-    return json.dumps(obj, ensure_ascii=False)
-
-def unpack(s, default=None):
-    try:
-        return json.loads(s)
-    except Exception:
-        return default
-    
-def new_id():
-    return str(uuid.uuid4())
