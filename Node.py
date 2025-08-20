@@ -5,11 +5,15 @@ import sys
 from typing import Dict, Set
 from protocol import make_msg, loads, dumps
 from Algorithms.Flooding import Flooding
+from Algorithms.LSR import LSR
+from Algorithms.Djikstra import Dijkstra
 import copy
 
 
 ALGORITHMS = {
     "flooding": Flooding,
+    "link_state_routing": LSR,
+    "dijkstra": Dijkstra
 
 }
 
@@ -24,8 +28,6 @@ def _headers_dict_inplace(msg: dict) -> dict:
         msg["headers"] = h
     return h
 
-#los jids son los identificadores únicos de cada nodo en la reds
-#clase nodo, que representa un nodo en la red y cada nodo es un cliente que puede enviar o recibir mensajes 
 class Node:
     def __init__(self, jid: str, neighbors: Dict[str, int], algo_name: str, host: str, port: int):
         self.jid = jid
