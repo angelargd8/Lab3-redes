@@ -7,13 +7,15 @@ from protocol import make_msg, loads, dumps
 from Algorithms.Flooding import Flooding
 from Algorithms.LSR import LSR
 from Algorithms.Djikstra import Dijkstra
+from Algorithms.DVR import DVR
 import copy
 
 
 ALGORITHMS = {
     "flooding": Flooding,
     "link_state_routing": LSR,
-    "dijkstra": Dijkstra
+    "dijkstra": Dijkstra,
+    "distance_vector_routing": DVR
 
 }
 
