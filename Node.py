@@ -9,6 +9,7 @@ from Algorithms.LSR import LSR
 from Algorithms.Djikstra import Dijkstra
 from Algorithms.DVR import DVR
 import copy
+import random
 
 
 ALGORITHMS = {
@@ -34,6 +35,10 @@ class Node:
     def __init__(self, jid: str, neighbors: Dict[str, int], algo_name: str, host: str, port: int):
         self.jid = jid
         self.neighbors = neighbors  # Dict of JID to port
+        # self.algo = ALGORITHMS[algo_name](self)
+        if algo_name is None or algo_name == "random":
+            
+            algo_name = random.choice(list(ALGORITHMS.keys()))
         self.algo = ALGORITHMS[algo_name](self)
         self.host = host
         self.port = port
@@ -175,10 +180,12 @@ def parse_neighbors(s: str):
 
 
 if __name__ == "__main__":
+    ALGO_CHOICES = list(ALGORITHMS.keys())
+
     ap = argparse.ArgumentParser()
     ap.add_argument("--jid", required=True)
     ap.add_argument("--neighbors", default="", help="csv de JIDs vecinos")
-    ap.add_argument("--algo", default="flooding", choices=list(ALGORITHMS.keys()))
+    ap.add_argument("--algo", choices=ALGO_CHOICES, default=None, help="Algoritmo a usar; si se omite, se elige uno al azar.")
     ap.add_argument("--host", default="127.0.0.1")
     ap.add_argument("--port", type=int, default=8765)
     args = ap.parse_args()
