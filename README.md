@@ -1,6 +1,7 @@
 # Lab3-redes
 
 Enlace al vídeo de como correrlo: https://youtu.be/-70DT0xZ5ss 
+
 crear el entorno:
 ```
 python3 -m venv .venv
