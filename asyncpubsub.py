@@ -1,3 +1,4 @@
+#aqui mandamos info
 import asyncio
 import redis.asyncio as redis
 
@@ -50,13 +51,14 @@ async def main():
     """The main asynchronous function."""
     r = redis.Redis(host=HOST, port=PORT, password=PWD)
     async with r.pubsub() as pubsub:
-        await pubsub.subscribe("channel:canal1")
+        await pubsub.subscribe("channel:sec20.topologia2.nodo9.prueba")
 
-        message = input("Enter the message to send to node B \n")
-        await r.publish("channel:nodeB", message)
+        #nodo al que le queremos enviar el mensaje
+        message = input("Enter the message to send to channel:sec20.topologia2.nodo9.prueba \n")
+        await r.publish("channel:sec20.topologia2.nodo9.prueba", message)
 
 if __name__ == "__main__":
     print("Starting asyncio and redis test...")
-    print("This is node A")
+    print("This is channel:sec20.topologia2.nodo9.prueba")
     asyncio.run(main())
     print("DONE!")
