@@ -8,6 +8,10 @@ cada nodo es un grupo
 cada nodo tiene un canal, a se debe de subribir a b y c
 a consulta la tabla de ruteo
 en vez de usar sockets, suscribirnos a los canales
+
+Notas importantes:
+- Cada nodo solo se suscribe a su propio canal y publica a los canales de los vecinos
+- no recupera los mensajes previos
 """
 import asyncio
 import argparse
@@ -34,8 +38,13 @@ ALGORITHMS = {
     # "distance_vector_routing": DVR,
 }
 
-
+"""
+representa un nodo en la red, este se suscribe a su propio canal (receiver_loop)
+publica mensajes a los canales de vecinos
+interactúa con el algoritmo de ruteo
+"""
 class Node:
+    #crea un nodo con el algoritmo de ruteo y los vecinos iniciales
     def __init__(self, node_id: str, neighbors: Dict[str, int], algo_name: str ="link_state_routing"):
         self.node_id = node_id
         self.neighbors = neighbors
@@ -52,6 +61,7 @@ class Node:
     def log(self, *a):
         print(f"[{self.node_id}] ", *a)
 
+    #punto de entrada asincrono del nodo
     async def start(self):
         #suscribirse a mi canal
         self.pubsub = self.r.pubsub()
@@ -66,13 +76,15 @@ class Node:
 
         #correr los loops
         await asyncio.gather(self.receiver_loop(), self.repl_loop())
-        
-    async def broadcast_to_neighbords(self, msg: dict):
+
+    # Publica un mensaje a los vecinos
+    async def broadcast_to_neighbors(self, msg: dict):
         payload = json.dumps(msg, ensure_ascii=False)
         for neighbor in self.neighbors.keys():
             await self.r.publish(channel_name(neighbor), payload)
             self.log(f"-> INIT/DONE publicado a  {neighbor}: {msg}")
 
+    #reenvia un mensaje a un vecino ajustando meta.prev y extendido de meta.path
     async def send_to_neighbor(self, neighbor_id: str, msg: dict, prev: str | None):
         
         out = copy.deepcopy(msg)
@@ -91,6 +103,7 @@ class Node:
         self.log(f"-> reenviado a {neighbor_id} msg_id={out['meta']['msg_id']}")
     
 
+    #genera y difunde un mensaje de un usuario a un destino logico
     async def send_user_message(self, destination: str, content: str, ttl: int = 8):
         msg = make_user_message(origin = self.node_id, destination= destination, ttl=ttl, content=content)
         msg_id = msg["meta"]["msg_id"]
@@ -101,17 +114,18 @@ class Node:
         for nb in next_hops:
             await self.send_to_neighbor(nb, msg, prev=self.id)
 
-    
+
+    # Maneja un mensaje de inicialización
     async def handle_init(self, msg: dict, from_node: str):
         self.log(f"INIT de {from_node}: vecinos={msg['payload'].get('neighbours', {})}")
         await self.algo.on_control(msg, from_node)
-        #si ya termino de calcular sus tablitas, enviar done
-
+    
+    #si ya termino de calcular sus tablitas, enviar done
     async def handle_done(self, msg: dict, from_node: str):
         self.log(f"DONE de {from_node}")
         await self.algo.on_control(msg, from_node)
 
-
+    # Maneja un mensaje de usuario
     async def handle_message(self, msg: dict, from_node: str):
         meta = msg.setdefault("meta", {})
         msg_id= meta.setdefault("msg_id", str(uuid.uuid4()))
@@ -149,22 +163,27 @@ class Node:
         for nb in next_hops:
             await self.send_to_neighbor(nb, msg, prev=from_node)
 
-
+    # aqui deberia de ser el bucle principal de recepcion
+    # debe de leer los mensaje del canal propio via pub/sub
+    # decodifica el json y lo procesa por type: init|done|message
     async def receiver_loop(self):
         pass
 
+    #repl asincronica para pruebas
+    #poner los comandos
+    #como los argumentos xd
     async def repl_loop(self):
         pass
 
 
-# cli
+# lo mismo que node, alguien hagale ctrl+c y ctrl+v jaja
 def parse_neighbors(s: str) -> Dict[str, int]:
     """
     'sec20.topologia2.nodo6:3,sec20.topologia2.nodo7:1'
     """
     pass
 
-
+#logica del main xd
 async def main():
     pass
 
