@@ -24,7 +24,8 @@ from Algorithms.LSR import LSR
 # from Algorithms.DVR import DVR
 import copy
 import redis.asyncio as redis
-
+import uuid
+import json
 
 #configuracion del redis
 HOST = "lab3.redesuvg.cloud"
@@ -48,7 +49,7 @@ class Node:
     def __init__(self, node_id: str, neighbors: Dict[str, int], algo_name: str ="link_state_routing"):
         self.node_id = node_id
         self.neighbors = neighbors
-        self.seen = Set[str] = set()
+        self.seen : Set[str] = set()
 
 
         AlgoCls = ALGORITHMS[algo_name]
@@ -69,7 +70,7 @@ class Node:
 
         #avisar a los vecinos hola con init
         intro = make_intro_msg(self.node_id, self.neighbors)
-        await self.broadcast_to_intro(intro)
+        await self.broadcast_to_neighbors(intro)
 
         #iniciar algoritmo
         await self.algo.on_start()
