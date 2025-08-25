@@ -1,0 +1,30 @@
+// Mensaje cuando el <nodo 1> se presenta ante sus vecinos
+{
+  "type": "init",
+  "payload": {
+    "whoAmI": "<nodo 1>",
+    "neighbours": {
+      "<nodo 1>": 5,
+      "<nodo 2>": 10
+    }
+  }
+}
+
+// Mensaje enviado cuando el <nodo 1> necesita enviar un mensaje al <nodo 2>
+{
+  "type": "message",
+  "payload": {
+    "origin": "<nodo 1>",
+    "destination": "<nodo 2>",
+    "ttl": 5,
+    "content": "asdflkjalsdkfjalksjdf"
+  }
+}
+
+// Mensaje enviado cuando ya terminó de calcular sus tablitas
+{
+  "type": "done",
+  "payload": {
+    "whoAmI": "<nodo 1>"
+  }
+}
