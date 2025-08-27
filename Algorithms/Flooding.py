@@ -19,5 +19,5 @@ class Flooding(Base):
 
     async def route_data(self, msg: dict, from_jid: str):
         #enviar todos los vecinos excepto el que lo envio
-        print("routing data from flooding!")
+        # print("routing data from flooding!")
         return [jid for jid in self.node.neighbors.keys() if jid != from_jid]

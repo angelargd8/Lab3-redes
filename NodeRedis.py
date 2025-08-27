@@ -24,6 +24,7 @@ from Algorithms.LSR import LSR
 # from Algorithms.DVR import DVR
 import copy
 import redis.asyncio as redis
+from redis.asyncio.client import PubSub
 import uuid
 import json
 
@@ -50,6 +51,7 @@ class Node:
         self.node_id = node_id
         self.neighbors = neighbors
         self.seen : Set[str] = set()
+        self.jid = node_id
 
 
         AlgoCls = ALGORITHMS[algo_name]
@@ -57,7 +59,7 @@ class Node:
 
         #redis 
         self.r = redis.Redis(host=HOST, port=PORT, password=PWD)
-        self.pubsub = redis.client.PubSub | None = None #self.r.pubsub()
+        self.pubsub: PubSub | None = None   
 
     def log(self, *a):
         print(f"[{self.node_id}] ", *a)
@@ -111,12 +113,8 @@ class Node:
             ttl=ttl,
             headers=[]
         )
-        msg_id = msg["payload"]["msg_id"]
-
-        self.log(f"Envío MESSAGE -> {destination} ttl={ttl} id={msg_id}")
-
         # primera salida usando el algoritmo
-        next_hops = await self.algo.route_data(msg, from_node=self.node_id)
+        next_hops = await self.algo.route_data(msg, self.node_id)
         for nb in next_hops:
             await self.send_to_neighbor(nb, msg)
 
@@ -131,15 +129,20 @@ class Node:
         self.log(f"INFO de {from_node} tabla={msg['payload']}")
         await self.algo.on_control(msg, from_node)
 
+    async def forward_message(self, msg: dict, from_node: str):
+        next_hops = await self.algo.route_data(msg, self.jid)
+        for nb in next_hops:
+            if nb == from_node:
+                continue
+            await self.send_to_neighbor(nb, msg)
+
+
     async def handle_message(self, msg: dict, from_node: str):
-        msg_id = msg["payload"].get("msg_id")
-        if msg_id in self.seen:
-            return
-        self.seen.add(msg_id)
+        msg_id = msg["payload"]
 
         dest = msg["to"]
         origin = msg["from"]
-        content = msg["payload"]["content"]
+        content = msg["payload"]
 
         if dest == self.node_id:
             self.log(f"RECIBIDO de {origin} id={msg_id} via={from_node} headers={msg['headers']} payload={content}")

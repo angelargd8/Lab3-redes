@@ -49,7 +49,7 @@ def make_message(origin: str, destination: str, content: str, headers: list[str]
         to=destination,
         ttl=ttl,
         headers=headers,
-        payload={"msg_id": msg_id, "content": content}
+        payload=content
     )
 
 def channel_name(node_id: str) -> str:
