@@ -64,19 +64,16 @@ class Node:
 
     #punto de entrada asincrono del nodo
     async def start(self):
-        #suscribirse a mi canal
         self.pubsub = self.r.pubsub()
         await self.pubsub.subscribe(channel_name(self.node_id))
 
-        #avisar a los vecinos hola con init
-        intro = make_intro_msg(self.node_id, self.neighbors)
-        await self.broadcast_to_neighbors(intro)
+        # Enviar HELLO al inicio
+        hello = make_hello_msg(self.node_id)
+        await self.broadcast_to_neighbors(hello)
 
-        #iniciar algoritmo
         await self.algo.on_start()
-
-        #correr los loops
         await asyncio.gather(self.receiver_loop(), self.repl_loop())
+
 
     # Publica un mensaje a los vecinos
     async def broadcast_to_neighbors(self, msg: dict):
@@ -86,83 +83,70 @@ class Node:
             self.log(f"-> INIT/DONE publicado a  {neighbor}: {msg}")
 
     #reenvia un mensaje a un vecino ajustando meta.prev y extendido de meta.path
-    async def send_to_neighbor(self, neighbor_id: str, msg: dict, prev: str | None):
-        
+    async def send_to_neighbor(self, neighbor_id: str, msg: dict):
         out = copy.deepcopy(msg)
 
-        #garantizar meta
-        out.setdefault("meta", {})
-        out["meta"].setdefault("msg_id", str(uuid.uuid4()))
-        out["meta"].setdefault("path", [])
-        out["meta"]["prev"] = prev
+        # actualizar headers (detección de ciclos)
+        out["headers"].append(self.node_id)
+        if len(out["headers"]) > 3:
+            out["headers"] = out["headers"][-3:]
 
-        #si es message anexar path
-        if out.get("type") == "message":
-            out["meta"]["path"].append(self.node_id)
+        # reducir TTL
+        out["ttl"] -= 1
+        if out["ttl"] <= 0:
+            self.log(f"Descartado TTL=0 {out}")
+            return
 
         await self.r.publish(channel_name(neighbor_id), json.dumps(out, ensure_ascii=False))
-        self.log(f"-> reenviado a {neighbor_id} msg_id={out['meta']['msg_id']}")
+        self.log(f"-> reenviado a {neighbor_id} {out}")
+
     
 
     #genera y difunde un mensaje de un usuario a un destino logico
     async def send_user_message(self, destination: str, content: str, ttl: int = 8):
-        msg = make_user_message(origin = self.node_id, destination= destination, ttl=ttl, content=content)
-        msg_id = msg["meta"]["msg_id"]
-        self.log(f"Envío DATA -> {destination} ttl={ttl} id={msg_id}")
+        msg = make_message(
+            origin=self.node_id,
+            destination=destination,
+            content=content,
+            ttl=ttl,
+            headers=[]
+        )
+        msg_id = msg["payload"]["msg_id"]
 
-        #primera salida 
-        next_hops = await self.algo.route_data(msg, from_node=self.id)
+        self.log(f"Envío MESSAGE -> {destination} ttl={ttl} id={msg_id}")
+
+        # primera salida usando el algoritmo
+        next_hops = await self.algo.route_data(msg, from_node=self.node_id)
         for nb in next_hops:
-            await self.send_to_neighbor(nb, msg, prev=self.id)
+            await self.send_to_neighbor(nb, msg)
 
 
-    # Maneja un mensaje de inicialización
+
+    # Maneja un mensaje de inicialización (HOLA!)
     async def handle_init(self, msg: dict, from_node: str):
-        self.log(f"INIT de {from_node}: vecinos={msg['payload'].get('neighbours', {})}")
-        await self.algo.on_control(msg, from_node)
-    
-    #si ya termino de calcular sus tablitas, enviar done
-    async def handle_done(self, msg: dict, from_node: str):
-        self.log(f"DONE de {from_node}")
+        self.log(f"HELLO de {from_node}")
         await self.algo.on_control(msg, from_node)
 
-    # Maneja un mensaje de usuario
+    async def handle_info(self, msg: dict, from_node: str):
+        self.log(f"INFO de {from_node} tabla={msg['payload']}")
+        await self.algo.on_control(msg, from_node)
+
     async def handle_message(self, msg: dict, from_node: str):
-        meta = msg.setdefault("meta", {})
-        msg_id= meta.setdefault("msg_id", str(uuid.uuid4()))
+        msg_id = msg["payload"].get("msg_id")
         if msg_id in self.seen:
             return
         self.seen.add(msg_id)
 
-        #TTL
-        payload = msg["payload"]
-        ttl = int(payload.get("ttl", 0))
+        dest = msg["to"]
+        origin = msg["from"]
+        content = msg["payload"]["content"]
 
-        dest = payload.get("destination")
-        origin = payload.get("origin")
-        content = payload.get("content")
-
-        #actualizar path/prev
-        meta.setdefault("path", [])
-        meta["path"].append(self.node_id)
-        meta["prev"] = from_node
-
-        #verificar si llego
         if dest == self.node_id:
-            self.log(f"RECIBIDO de {origin} id={msg_id} via={from_node} path={meta['path']} payload={content}")
+            self.log(f"RECIBIDO de {origin} id={msg_id} via={from_node} headers={msg['headers']} payload={content}")
             return
-        
-        #decrementar ttl y descartar si expira
-        ttl -= 1
-        if ttl < 0:
-            self.log(f"DESCARTADO de {origin} id={msg_id} via={from_node} path={meta['path']} payload={content} (TTL expirado)")
-            return
-        payload["ttl"] = ttl
 
-        #reenviar
-        next_hops = await self.algo.route_data(msg, from_node=from_node)
-        for nb in next_hops:
-            await self.send_to_neighbor(nb, msg, prev=from_node)
+        await self.forward_message(msg, from_node)
+
 
     # aqui deberia de ser el bucle principal de recepcion
     # debe de leer los mensaje del canal propio via pub/sub
@@ -182,11 +166,37 @@ def parse_neighbors(s: str) -> Dict[str, int]:
     """
     'sec20.topologia2.nodo6:3,sec20.topologia2.nodo7:1'
     """
-    pass
+    neighbors: Dict[str, int] = {}
+    if not s.strip():
+        return neighbors
+
+    parts = s.split(",")
+    for part in parts:
+        if not part.strip():
+            continue
+        try:
+            node_id, cost = part.split(":")
+            neighbors[node_id.strip()] = int(cost.strip())
+        except ValueError:
+            raise ValueError(f"Formato inválido en vecinos: '{part}', se esperaba nodo:coste")
+    return neighbors
 
 #logica del main xd
 async def main():
-    pass
+    parser = argparse.ArgumentParser(description="Redis-PubSub Node")
+    parser.add_argument("--id", required=True, help="ID del nodo (ej. sec20.topologia2.nodo1)")
+    parser.add_argument("--neighbors", default="", help="Lista de vecinos con costo (ej. sec20.topologia2.nodo6:3,sec20.topologia2.nodo7:1)")
+    parser.add_argument("--algo", default="link_state_routing", choices=ALGORITHMS.keys(), help="Algoritmo de ruteo")
+
+    args = parser.parse_args()
+
+    neighbors = parse_neighbors(args.neighbors)
+
+    print(f"[BOOT] Nodo {args.id} iniciado con vecinos={neighbors} usando algoritmo={args.algo}")
+
+    node = Node(node_id=args.id, neighbors=neighbors, algo_name=args.algo)
+
+    await node.start()
 
 
 if __name__ == "__main__":

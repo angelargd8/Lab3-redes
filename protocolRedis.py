@@ -1,51 +1,56 @@
-import json
 import uuid
+from typing import Dict, Any
 
-from typing import Dict
-
-# Mensaje cuando el <nodo 1> se presenta ante sus vecinos
-def make_intro_msg(who_am_i: str, neighbours: Dict[str, int]) -> dict:
-    return make_msg("init", {
-        "whoAmI": who_am_i,
-        "neighbours": neighbours
-    })
-
-
-# Mensaje enviado cuando el <nodo 1> necesita enviar un mensaje al <nodo 2>
-def make_msg(type_: str, payload: dict, meta: dict | None = None) -> dict:
-    out = {
+def make_base_msg(type_: str, from_: str, to: str, ttl: int, headers: list[str], payload: Any) -> dict:
+    return {
+        "proto": "lsr",
         "type": type_,
+        "from": from_,
+        "to": to,
+        "ttl": ttl,
+        "headers": headers,
         "payload": payload
     }
-    if meta is not None:
-        out["meta"] = meta
-    return out
 
-def make_user_message(origin: str, destination: str, ttl: int, content: str, msg_id: str | None = None) -> dict:
+# HELLO -> equivalente a "init"
+def make_hello_msg(who_am_i: str, ttl: int = 5) -> dict:
+    return make_base_msg(
+        "hello",
+        from_=who_am_i,
+        to="broadcast",
+        ttl=ttl,
+        headers=[],
+        payload=""  # opcional: vecinos iniciales si quieres
+    )
+
+# INFO -> equivalente a "done"/tablas
+def make_info_msg(who_am_i: str, routing_table: Dict[str, int], headers: list[str] | None = None, ttl: int = 5) -> dict:
+    if headers is None:
+        headers = []
+    return make_base_msg(
+        "info",
+        from_=who_am_i,
+        to="broadcast",
+        ttl=ttl,
+        headers=headers,
+        payload=routing_table
+    )
+
+# MESSAGE -> equivalente a "message" de usuario
+def make_message(origin: str, destination: str, content: str, headers: list[str] | None = None,
+                 ttl: int = 5, msg_id: str | None = None) -> dict:
+    if headers is None:
+        headers = []
     if msg_id is None:
         msg_id = str(uuid.uuid4())
-    payload = {
-        "origin": origin,
-        "destination": destination,
-        "ttl": ttl,
-        "content": content
-    }
-    meta = {
-        "msg_id": msg_id,
-        "path": [origin],
-        "prev": None
-    }
-    return make_msg("message", payload, meta=meta)
-
-# mensaje enviado cuando ya termino de calcular sus tablitas
-def make_done_msg(who_am_i: str) -> dict:
-    return make_msg(
-        "done", {
-            "whoAmI": who_am_i
-        }
+    return make_base_msg(
+        "message",
+        from_=origin,
+        to=destination,
+        ttl=ttl,
+        headers=headers,
+        payload={"msg_id": msg_id, "content": content}
     )
 
 def channel_name(node_id: str) -> str:
-    # node_id = "sec20.topologia2.nodo9"
     return f"channel:{node_id}"
-
