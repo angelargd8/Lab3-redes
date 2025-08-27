@@ -152,13 +152,71 @@ class Node:
     # debe de leer los mensaje del canal propio via pub/sub
     # decodifica el json y lo procesa por type: init|done|message
     async def receiver_loop(self):
-        pass
+        self.log("Esperando mensajes en canal propio...")
+        async for raw in self.pubsub.listen():
+            if raw is None:
+                continue
+            if raw["type"] != "message":
+                continue
+
+            try:
+                msg = json.loads(raw["data"])
+            except Exception as e:
+                self.log(f"Error decodificando JSON: {e}, raw={raw}")
+                continue
+
+            mtype = msg.get("type")
+            from_node = msg.get("from", "?")
+
+            if mtype == "hello":
+                await self.handle_init(msg, from_node)
+            elif mtype == "info":
+                await self.handle_info(msg, from_node)
+            elif mtype == "message":
+                await self.handle_message(msg, from_node)
+            else:
+                self.log(f"Mensaje desconocido {msg}")
 
     #repl asincronica para pruebas
     #poner los comandos
     #como los argumentos xd
     async def repl_loop(self):
-        pass
+        loop = asyncio.get_event_loop()
+        while True:
+            # input en hilo separado para no bloquear asyncio
+            cmdline = await loop.run_in_executor(None, sys.stdin.readline)
+            if not cmdline:
+                continue
+            cmdline = cmdline.strip()
+
+            if not cmdline:
+                continue
+
+            parts = cmdline.split()
+            cmd = parts[0].lower()
+
+            if cmd in ("quit", "exit"):
+                self.log("Saliendo...")
+                break
+
+            elif cmd == "send":
+                # uso: send <destino> <mensaje>
+                if len(parts) < 3:
+                    self.log("Uso: send <destino> <mensaje>")
+                    continue
+                dest = parts[1]
+                content = " ".join(parts[2:])
+                await self.send_user_message(dest, content)
+
+            elif cmd == "neighbors":
+                self.log(f"Vecinos: {self.neighbors}")
+
+            elif cmd == "seen":
+                self.log(f"Mensajes vistos: {len(self.seen)} ids")
+
+            else:
+                self.log(f"Comando desconocido: {cmd}")
+
 
 
 # lo mismo que node, alguien hagale ctrl+c y ctrl+v jaja
