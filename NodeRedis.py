@@ -226,8 +226,7 @@ class Node:
                 self.log(f"Comando desconocido: {cmd}")
 
 
-
-# lo mismo que node, alguien hagale ctrl+c y ctrl+v jaja
+# formato de los neighbors en diccionario
 def parse_neighbors(s: str) -> Dict[str, int]:
     """
     'sec20.topologia2.nodo6:3,sec20.topologia2.nodo7:1'
@@ -247,7 +246,7 @@ def parse_neighbors(s: str) -> Dict[str, int]:
             raise ValueError(f"Formato inválido en vecinos: '{part}', se esperaba nodo:coste")
     return neighbors
 
-#logica del main xd
+
 async def main():
     parser = argparse.ArgumentParser(description="Redis-PubSub Node")
     parser.add_argument("--id", required=True, help="ID del nodo (ej. sec20.topologia2.nodo1)")
