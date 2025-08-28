@@ -53,4 +53,4 @@ def make_message(origin: str, destination: str, content: str, headers: list[str]
     )
 
 def channel_name(node_id: str) -> str:
-    return f"channel:{node_id}"
+    return f"{node_id}"
