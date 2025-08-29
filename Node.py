@@ -104,12 +104,12 @@ class Node:
 
         msg["ttl"] = int(msg.get("ttl", 0)) - 1
         if msg["ttl"] < 0:
+            self.log(f"DESCARTADO id={msg_id} desde {from_jid} en {self.jid}: TTL agotado (path={path})")
             return
 
         next_hops = await self.algo.route_data(msg, from_jid)
         for nb in next_hops:
             await self.send_to_neighbor(nb, msg)
-
 
 
     async def handle_control(self, msg: dict, from_jid: str):
