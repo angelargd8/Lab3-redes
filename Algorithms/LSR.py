@@ -52,7 +52,7 @@ class LSR(Base):
 
     async def route_data(self, msg: dict, from_jid: str) -> List[str]:
 
-        dst = (msg or {}).get("dst")
+        dst = (msg or {}).get("to")
         if not dst:
             return await self._maybe_fallback_data_flood(msg, from_jid)
         if dst == self.node.jid:
