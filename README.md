@@ -1,6 +1,5 @@
-# Lab3-redes
+# Lab 3 - redes
 
-Enlace al vídeo de como correrlo: https://youtu.be/-70DT0xZ5ss
 
 crear el entorno:
 
@@ -20,6 +19,12 @@ instalar depedencias:
 pip install slixmpp aiodns pycares redis
 ```
 
+
+------------
+# Laboratorio 3.2 
+Nota: para este laboratorio se esta usando un servidor brindado en la clase
+
+
 correr el archivo de redis:
 
 ```
@@ -31,6 +36,9 @@ python NodeRedis.py --id sec20.topologia2.nodo5 --neighbors sec20.topologia2.nod
 python NodeRedis.py --id sec20.topologia2.nodo2 --neighbors sec20.topologia2.nodo5:1
 ```
 
+
+---------------
+# Laboratorio 3
 correr el archivo:
 
 ```
@@ -57,3 +65,5 @@ Enviar mensajes:
 ```
 send A hola desde C
 ```
+
+Enlace al vídeo de como correrlo: https://youtu.be/-70DT0xZ5ss
