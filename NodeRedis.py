@@ -28,13 +28,15 @@ from redis.asyncio.client import PubSub
 import uuid
 import json
 
+from Algorithms.Flooding import Flooding
+
 #configuracion del redis
 HOST = "lab3.redesuvg.cloud"
 PORT = 6379
 PWD = "UVGRedis2025"
 
 ALGORITHMS = {
-    # "flooding": Flooding,
+    "flooding": Flooding,
     "link_state_routing": LSR,
     # "dijkstra": Dijkstra,
     # "distance_vector_routing": DVR,
@@ -47,7 +49,7 @@ interactúa con el algoritmo de ruteo
 """
 class Node:
     #crea un nodo con el algoritmo de ruteo y los vecinos iniciales
-    def __init__(self, node_id: str, neighbors: Dict[str, int], algo_name: str ="link_state_routing"):
+    def __init__(self, node_id: str, neighbors: Dict[str, int], algo_name: str ="flooding"):
         self.node_id = node_id
         self.neighbors = neighbors
         self.seen : Set[str] = set()
@@ -115,6 +117,7 @@ class Node:
         )
         # primera salida usando el algoritmo
         next_hops = await self.algo.route_data(msg, self.node_id)
+        print(next_hops)
         for nb in next_hops:
             await self.send_to_neighbor(nb, msg)
 
@@ -138,6 +141,8 @@ class Node:
 
 
     async def handle_message(self, msg: dict, from_node: str):
+        self.log(f"MENSAJE de {from_node} payload={msg['payload']}")
+        print()
         msg_id = msg["payload"]
 
         dest = msg["to"]
@@ -221,8 +226,7 @@ class Node:
                 self.log(f"Comando desconocido: {cmd}")
 
 
-
-# lo mismo que node, alguien hagale ctrl+c y ctrl+v jaja
+# formato de los neighbors en diccionario
 def parse_neighbors(s: str) -> Dict[str, int]:
     """
     'sec20.topologia2.nodo6:3,sec20.topologia2.nodo7:1'
@@ -242,7 +246,7 @@ def parse_neighbors(s: str) -> Dict[str, int]:
             raise ValueError(f"Formato inválido en vecinos: '{part}', se esperaba nodo:coste")
     return neighbors
 
-#logica del main xd
+
 async def main():
     parser = argparse.ArgumentParser(description="Redis-PubSub Node")
     parser.add_argument("--id", required=True, help="ID del nodo (ej. sec20.topologia2.nodo1)")
